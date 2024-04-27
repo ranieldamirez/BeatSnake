@@ -1,0 +1,8 @@
+Sources (other than research papers listed in the references of the project proposal):
+
+https://www.techtarget.com/searchenterpriseai/definition/Q-learning
+https://towardsdatascience.com/using-q-learning-in-numpy-to-teach-an-agent-to-play-a-game-4fee32eb922a
+
+
+Used to learn about hyperparamers:
+https://arxiv.org/pdf/2006.05990
