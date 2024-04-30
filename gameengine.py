@@ -106,6 +106,6 @@ class SnakeGame:
             self.draw_snake()
             self.draw_food()
             pygame.display.flip()
-            self.clock.tick(30000)
+            self.clock.tick(15)
 
         pygame.quit()

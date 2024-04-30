@@ -1,47 +1,44 @@
 import numpy as np
 import random
-import pygame
+import matplotlib
+matplotlib.use('Agg')  # Use the 'Agg' backend, which is non-interactive and does not require a windowing system
+import matplotlib.pyplot as plt
 from gameengine import SnakeGame, UP, DOWN, LEFT, RIGHT, GRID_WIDTH, GRID_HEIGHT
 
 # Define hyperparameters
-LEARNING_RATE = 0.1
-DISCOUNT_FACTOR = 0.9  # try 0.95 too
-EPISODES = 10000
-
-# Define colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-GREEN = (0, 255, 0)
-RED = (255, 0, 0)
-
-# Initialize pygame
-pygame.init()
-
-# Set screen dimensions
-SCREEN_WIDTH = 600
-SCREEN_HEIGHT = 600
-CELL_SIZE = 20
-
-# Initialize the font
-font = pygame.font.Font(None, 36)
-
-def state_to_index(state):
-    x, y, food_x, food_y = state
-    x = min(max(x, 0), GRID_WIDTH - 1)
-    y = min(max(y, 0), GRID_HEIGHT - 1)
-    food_x = min(max(food_x, 0), GRID_WIDTH - 1)
-    food_y = min(max(food_y, 0), GRID_HEIGHT - 1)
-    return y * GRID_WIDTH * GRID_WIDTH + x * GRID_WIDTH + food_y * GRID_WIDTH + food_x
+LEARNING_RATE = 0.15  # Slightly increased
+DISCOUNT_FACTOR = 0.95  # Slightly increased for longer-term planning
+EPISODES = 100000
+EPSILON_DECAY = 0.995  # More gradual decay
+MIN_EPSILON = 0.01
 
 class Agent:
-    def __init__(self, state_space_size, action_space_size):
-        self.q_table = np.zeros((state_space_size, action_space_size))
+    def __init__(self):
+        self.q_table = np.zeros((9 * 4 * 2, 4))
+
+    def get_state(self, game):
+        head_x, head_y = game.snake[0]
+        food_x, food_y = game.food
+
+        food_dir_x = np.sign(food_x - head_x)
+        food_dir_y = np.sign(food_y - head_y)
+        food_dir_idx = (food_dir_x + 1) * 3 + (food_dir_y + 1)
+
+        danger = [0] * 3
+        directions = [LEFT, game.direction, RIGHT]
+        for index, dir in enumerate(directions):
+            next_pos = (head_x + dir[0], head_y + dir[1])
+            if next_pos in game.snake or next_pos[0] < 0 or next_pos[0] >= GRID_WIDTH or next_pos[1] < 0 or next_pos[1] >= GRID_HEIGHT:
+                danger[index] = 1
+
+        state = (food_dir_idx, 2 * danger[0] + danger[1], danger[2])
+        return np.ravel_multi_index(state, (9, 4, 2))
 
     def choose_action(self, state, epsilon):
         if random.uniform(0, 1) < epsilon:
-            return random.randint(0, len(self.q_table[state]) - 1)  # Explore
+            return random.randint(0, 3)
         else:
-            return np.argmax(self.q_table[state])  # Exploit
+            return np.argmax(self.q_table[state])
 
     def update_q_table(self, state, action, reward, next_state):
         max_future_q = np.max(self.q_table[next_state])
@@ -50,78 +47,51 @@ class Agent:
         self.q_table[state, action] = new_q
 
 def train_q_learning_agent():
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption('Snake Game')
+    agent = Agent()
+    scores = []
+    epsilon = 1.0
 
-    episode_count = 0
-    running = True
-    while running:
-        # Create a new instance of the Snake game for each episode
+    for episode in range(EPISODES):
         game = SnakeGame()
-
-        state = (game.snake[0][0], game.snake[0][1], game.food[0], game.food[1])
+        state = agent.get_state(game)
         done = False
         total_reward = 0
-        if episode_count % 500 == 0:
-            print("\n ----- 500 CHECKPOINT ----- \n")
-        if episode_count in range(9980, 10000):
-            while not done:
-                # Render the game
-                screen.fill(BLACK)
-                game.draw_grid()
-                game.draw_snake()
-                game.draw_food()
-                pygame.display.flip()
-                pygame.time.delay(100)
 
-                # Choose action
-                epsilon = 1 - (episode_count / EPISODES)  # Epsilon-greedy exploration strategy
-                action = agent.choose_action(state_to_index(state), epsilon)
+        while not done:
+            action = agent.choose_action(state, epsilon)
+            reward, done = game.play_step(action)
+            next_state = agent.get_state(game)
+            agent.update_q_table(state, action, reward, next_state)
+            state = next_state
+            total_reward += reward
+            epsilon = max(MIN_EPSILON, epsilon * EPSILON_DECAY)
 
-                # Take action
-                reward, done = game.play_step(action)
-                next_state = (game.snake[0][0], game.snake[0][1], game.food[0], game.food[1])
+        scores.append(total_reward)
+        # Define colors for terminal output
+        RED = "\033[91m"
+        YELLOW = "\033[93m"
+        GREEN = "\033[92m"
+        RESET = "\033[0m"
+        if episode % 100 == 0:
+            if total_reward < 0:
+                color = RED
+            elif total_reward == 0:
+                color = YELLOW
+            else:
+                color = GREEN
+        if episode % 100 == 0:
+            print(f"Episode {episode}: Total Reward = {color}{total_reward}{RESET}")
 
-                # Update Q-table
-                agent.update_q_table(state_to_index(state), action, reward, state_to_index(next_state))
-                state = next_state
-                total_reward += reward
-
-            # Display total reward for the episode
-            print(f"Episode Score: {total_reward}")
-
-            # Increment episode count
-            episode_count += 1
-
-            # Wait for user to press Enter before starting next episode
-            input("Press Enter to continue...")
-
-        else:
-            while not done:
-
-                # Choose action
-                epsilon = 1 - (episode_count / EPISODES)  # Epsilon-greedy exploration strategy
-                action = agent.choose_action(state_to_index(state), epsilon)
-
-                # Take action
-                reward, done = game.play_step(action)
-                next_state = (game.snake[0][0], game.snake[0][1], game.food[0], game.food[1])
-
-                # Update Q-table
-                agent.update_q_table(state_to_index(state), action, reward, state_to_index(next_state))
-                state = next_state
-                total_reward += reward
-
-            # Display total reward for the episode
-            print(f"Episode Score: {total_reward}")
-
-            # Increment episode count
-            episode_count += 1
-
-            # Wait for user to press Enter before starting next episode
-            #input("Press Enter to continue...")
-        pygame.quit()
+    plt.figure(figsize=(10, 5))
+    plt.plot(scores, label='Episode Rewards')
+    z = np.polyfit(range(len(scores)), scores, 1)
+    p = np.poly1d(z)
+    plt.plot(range(len(scores)), p(range(len(scores))), "r--", label='Trendline')
+    plt.title("Episode Rewards Over Time")
+    plt.xlabel("Episode")
+    plt.ylabel("Total Reward")
+    plt.legend()
+    plt.savefig('plot.png')
 
 if __name__ == '__main__':
-    agent = Agent(GRID_WIDTH * GRID_HEIGHT * GRID_WIDTH * GRID_HEIGHT, 4)
     train_q_learning_agent()
