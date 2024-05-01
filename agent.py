@@ -1,87 +1,130 @@
 import numpy as np
+import pygame
 import random
-import matplotlib
-matplotlib.use('Agg')  # Use the 'Agg' backend, which is non-interactive and does not require a windowing system
-import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
+import torch.optim as optim
 from gameengine import SnakeGame, UP, DOWN, LEFT, RIGHT, GRID_WIDTH, GRID_HEIGHT
+import matplotlib.pyplot as plt
 
-# Define hyperparameters
-LEARNING_RATE = 0.15  # Slightly increased
-DISCOUNT_FACTOR = 0.95  # Slightly increased for longer-term planning
-EPISODES = 100000
-EPSILON_DECAY = 0.995  # More gradual decay
+# define hyperparameters
+LEARNING_RATE = 0.005  # 
+DISCOUNT_FACTOR = 0.99
+EPISODES = 10000
+EPSILON_DECAY = 0.999  # controls how much explore-exploit ratio changes
 MIN_EPSILON = 0.01
 
+# define the Q-network
+# super() gets the methods from nn.Module
+class QNetwork(nn.Module):
+    def __init__(self, input_size, output_size):
+        super(QNetwork, self).__init__()
+        self.fc1 = nn.Linear(input_size, 256)  # Increased network capacity
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, output_size)
+
+    def forward(self, x):
+    
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+
 class Agent:
-    def __init__(self):
-        self.q_table = np.zeros((9 * 4 * 2, 4))
+    def __init__(self, state_space_size, action_space_size):
+        self.q_network = QNetwork(state_space_size, action_space_size)
+        # Adam optimization algorithm (similar to stochasitc gradient descent)
+        self.optimizer = optim.Adam(self.q_network.parameters(), lr=LEARNING_RATE)
 
     def get_state(self, game):
         head_x, head_y = game.snake[0]
         food_x, food_y = game.food
+        direction = game.direction
 
-        food_dir_x = np.sign(food_x - head_x)
-        food_dir_y = np.sign(food_y - head_y)
-        food_dir_idx = (food_dir_x + 1) * 3 + (food_dir_y + 1)
+        state = [
+            # food location
+            (food_x - head_x) // GRID_WIDTH,
+            (food_y - head_y) // GRID_HEIGHT,
+            
+            # nearby danger
+            int(game.check_collision((head_x + LEFT[0], head_y + LEFT[1]))),
+            int(game.check_collision((head_x + RIGHT[0], head_y + RIGHT[1]))),
+            int(game.check_collision((head_x + UP[0], head_y + UP[1]))),
+            int(game.check_collision((head_x + DOWN[0], head_y + DOWN[1]))),
+        ]
 
-        danger = [0] * 3
-        directions = [LEFT, game.direction, RIGHT]
-        for index, dir in enumerate(directions):
-            next_pos = (head_x + dir[0], head_y + dir[1])
-            if next_pos in game.snake or next_pos[0] < 0 or next_pos[0] >= GRID_WIDTH or next_pos[1] < 0 or next_pos[1] >= GRID_HEIGHT:
-                danger[index] = 1
-
-        state = (food_dir_idx, 2 * danger[0] + danger[1], danger[2])
-        return np.ravel_multi_index(state, (9, 4, 2))
+        return torch.tensor([state], dtype=torch.float)
 
     def choose_action(self, state, epsilon):
         if random.uniform(0, 1) < epsilon:
             return random.randint(0, 3)
         else:
-            return np.argmax(self.q_table[state])
+            with torch.no_grad(): # not doing inference here
+                q_values = self.q_network(state)
+                return torch.argmax(q_values).item() # return highest value as integer
 
-    def update_q_table(self, state, action, reward, next_state):
-        max_future_q = np.max(self.q_table[next_state])
-        current_q = self.q_table[state, action]
-        new_q = (1 - LEARNING_RATE) * current_q + LEARNING_RATE * (reward + DISCOUNT_FACTOR * max_future_q)
-        self.q_table[state, action] = new_q
+    def update_q_network(self, state, action, reward, next_state, done):
+
+        q_values = self.q_network(state) # give value [[q_value_action1, q_value_action2, ...]]
+        next_q_values = self.q_network(next_state)
+
+        max_next_q_value = torch.max(next_q_values).item()
+        target_q_value = reward + DISCOUNT_FACTOR * max_next_q_value # bellman equation, discount future rewards and prioritize short term rewards
+
+        q_value = q_values[0, action]
+        loss = nn.MSELoss()(q_value, torch.tensor(target_q_value)) # mean squared error to calculate loss between calculated q-value and ideal q-value
+
+        self.optimizer.zero_grad() # clear previous gradients
+        loss.backward() # backpropagation to compute gradients
+        self.optimizer.step() # use gradients to adjust NN values
 
 def train_q_learning_agent():
-    agent = Agent()
+    agent = Agent(6, 4)
     scores = []
     epsilon = 1.0
-
+    
+    
     for episode in range(EPISODES):
+        total_reward = 0
         game = SnakeGame()
         state = agent.get_state(game)
         done = False
-        total_reward = 0
-
         while not done:
             action = agent.choose_action(state, epsilon)
             reward, done = game.play_step(action)
             next_state = agent.get_state(game)
-            agent.update_q_table(state, action, reward, next_state)
+            agent.update_q_network(state, action, reward, next_state, done)
             state = next_state
             total_reward += reward
             epsilon = max(MIN_EPSILON, epsilon * EPSILON_DECAY)
 
-        scores.append(total_reward)
-        # Define colors for terminal output
-        RED = "\033[91m"
-        YELLOW = "\033[93m"
-        GREEN = "\033[92m"
-        RESET = "\033[0m"
-        if episode % 100 == 0:
-            if total_reward < 0:
-                color = RED
-            elif total_reward == 0:
-                color = YELLOW
-            else:
-                color = GREEN
-        if episode % 100 == 0:
-            print(f"Episode {episode}: Total Reward = {color}{total_reward}{RESET}")
+            """  # Update the display
+            game.screen.fill((0,0,0))
+            game.draw_snake()
+            game.draw_food()
+            pygame.display.flip()
+            game.clock.tick(10)  # Control the speed of the visualization
 
+            # Handle quit events
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return """
+
+        scores.append(total_reward)
+        if episode % 100 == 0:
+            print(f"Episode {episode}: Total Reward = {total_reward}")
+            """ keyboard = input("Press 'q' to quit, or 'Enter' to continue...")
+            if keyboard.lower() == "q":
+                print("\n\nUSER QUIT\n\n")
+                pygame.quit()
+                exit() """
+        
+        
+    return scores
+
+if __name__ == '__main__':
+    scores = train_q_learning_agent()
     plt.figure(figsize=(10, 5))
     plt.plot(scores, label='Episode Rewards')
     z = np.polyfit(range(len(scores)), scores, 1)
@@ -92,6 +135,3 @@ def train_q_learning_agent():
     plt.ylabel("Total Reward")
     plt.legend()
     plt.savefig('plot.png')
-
-if __name__ == '__main__':
-    train_q_learning_agent()

@@ -37,12 +37,7 @@ class SnakeGame:
             if food not in self.snake:
                 return food
 
-    def draw_grid(self):
-        for x in range(0, SCREEN_WIDTH, CELL_SIZE):
-            pygame.draw.line(self.screen, BLACK, (x, 0), (x, SCREEN_HEIGHT))
-        for y in range(0, SCREEN_HEIGHT, CELL_SIZE):
-            pygame.draw.line(self.screen, BLACK, (0, y), (SCREEN_WIDTH, y))
-
+    # .rect(display, color, (x-cord, y-cord, rect width, rect height))
     def draw_snake(self):
         for segment in self.snake:
             pygame.draw.rect(self.screen, GREEN, (segment[0] * CELL_SIZE, segment[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
@@ -50,6 +45,7 @@ class SnakeGame:
     def draw_food(self):
         pygame.draw.rect(self.screen, RED, (self.food[0] * CELL_SIZE, self.food[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
 
+    # add a square toward the direction, pop end if no food is hit
     def move_snake(self):
         head = (self.snake[0][0] + self.direction[0], self.snake[0][1] + self.direction[1])
         self.snake.insert(0, head)
@@ -57,6 +53,7 @@ class SnakeGame:
             self.food = self.generate_food()
         else:
             self.snake.pop()
+
 
     def play_step(self, action):
         # Perform the action in the game
@@ -73,7 +70,7 @@ class SnakeGame:
         self.move_snake()
 
         # Check if the game is done after taking the action
-        done = self.check_collision()
+        done = self.check_collision(self.snake[0])
 
         # Calculate reward based on game state
         reward = 0
@@ -88,9 +85,9 @@ class SnakeGame:
 
         return reward, done
 
-    def check_collision(self):
-        head = self.snake[0]
-        if head[0] < 0 or head[0] >= GRID_WIDTH or head[1] < 0 or head[1] >= GRID_HEIGHT or head in self.snake[1:]:
+    def check_collision(self, position):
+        x, y = position
+        if x < 0 or x >= GRID_WIDTH or y < 0 or y >= GRID_HEIGHT or position in self.snake[1:]:
             return True
         return False
 
