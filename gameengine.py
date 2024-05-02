@@ -75,11 +75,11 @@ class SnakeGame:
         # Calculate reward based on game state
         reward = 0
         if done:
-            reward = -1  # Negative reward for losing the game
+            reward = -20  # Negative reward for losing the game
         elif len(self.snake) > self.last_snake_length:
-            reward = 1  # Positive reward for growing the snake
+            reward = 15  # Positive reward for growing the snake
         else:
-            reward = 0  # No reward for other steps
+            reward = 0.5  # no reward for nothing
 
         self.last_snake_length = len(self.snake)
 

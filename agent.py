@@ -1,18 +1,24 @@
 import numpy as np
+from termcolor import colored
 import pygame
 import random
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from tqdm import tqdm
 from gameengine import SnakeGame, UP, DOWN, LEFT, RIGHT, GRID_WIDTH, GRID_HEIGHT
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from statistics import mean # DEBUG
 
 # define hyperparameters
-LEARNING_RATE = 0.005  # 
+LEARNING_RATE = 0.001  # 
 DISCOUNT_FACTOR = 0.99
-EPISODES = 10000
+EPISODES = 2500
 EPSILON_DECAY = 0.999  # controls how much explore-exploit ratio changes
 MIN_EPSILON = 0.01
+collided = False
 
 # define the Q-network
 # super() gets the methods from nn.Module
@@ -39,18 +45,28 @@ class Agent:
     def get_state(self, game):
         head_x, head_y = game.snake[0]
         food_x, food_y = game.food
-        direction = game.direction
 
-        state = [
-            # food location
-            (food_x - head_x) // GRID_WIDTH,
-            (food_y - head_y) // GRID_HEIGHT,
-            
+        # add direction
+        dir_left = game.direction == LEFT
+        dir_right = game.direction == RIGHT
+        dir_up = game.direction == UP
+        dir_down = game.direction == DOWN
+
+        state = [ 
             # nearby danger
             int(game.check_collision((head_x + LEFT[0], head_y + LEFT[1]))),
             int(game.check_collision((head_x + RIGHT[0], head_y + RIGHT[1]))),
             int(game.check_collision((head_x + UP[0], head_y + UP[1]))),
             int(game.check_collision((head_x + DOWN[0], head_y + DOWN[1]))),
+
+            # direction in which the snake is moving
+            dir_left, dir_right, dir_up, dir_down,
+
+            # food location
+            food_x > head_x,  # food right
+            food_x < head_x,  # Food left
+            food_y > head_y,  # Food down
+            food_y < head_y   # Food up
         ]
 
         return torch.tensor([state], dtype=torch.float)
@@ -77,50 +93,75 @@ class Agent:
         self.optimizer.zero_grad() # clear previous gradients
         loss.backward() # backpropagation to compute gradients
         self.optimizer.step() # use gradients to adjust NN values
+        return loss.item()
 
 def train_q_learning_agent():
-    agent = Agent(6, 4)
+    agent = Agent(12, 4)
     scores = []
+    snake_lengths = []
+    losses = []
     epsilon = 1.0
     
-    
-    for episode in range(EPISODES):
+    for episode in tqdm(range(EPISODES), desc="Training Progress"):
+        #print("\n EPISODE:", episode)
+        episode_losses = []
+
         total_reward = 0
         game = SnakeGame()
         state = agent.get_state(game)
         done = False
+        translation = {0:"UP",1:"DOWN",2:"LEFT",3:"RIGHT"}
+        
         while not done:
+            pygame.event.pump()  # Process event queue
+            """ for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return """
+            """  # Update and render the game state
+                screen.fill((0,0,0))
+                game.draw_snake()
+                game.draw_food()
+                pygame.display.flip() """
             action = agent.choose_action(state, epsilon)
+            #print("ACTION CHOSEN:", translation[action])
             reward, done = game.play_step(action)
+            #print("Reward for action:", reward)
+            #print("Keep going according to play_step AI? Done =", done)
             next_state = agent.get_state(game)
-            agent.update_q_network(state, action, reward, next_state, done)
+            loss = agent.update_q_network(state, action, reward, next_state, done)
+            episode_losses.append(loss)
             state = next_state
             total_reward += reward
             epsilon = max(MIN_EPSILON, epsilon * EPSILON_DECAY)
 
-            """  # Update the display
-            game.screen.fill((0,0,0))
-            game.draw_snake()
-            game.draw_food()
-            pygame.display.flip()
-            game.clock.tick(10)  # Control the speed of the visualization
+        average_loss = sum(episode_losses) / len(episode_losses)
+        snake_lengths.append(len(game.snake))
+        
+        losses.append(average_loss)
+        #print("\nEPISODE OVER\n")
 
-            # Handle quit events
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    return """
+        """ if total_reward > 0:
+            print(colored(f"Episode reward: {total_reward}", 'green'))
+        elif total_reward == 0:
+            print(colored(f"Episode reward: {total_reward}", 'yellow'))
+        else:
+            print(colored(f"Episode reward: {total_reward}", 'red')) """
 
+        
         scores.append(total_reward)
+
         if episode % 100 == 0:
-            print(f"Episode {episode}: Total Reward = {total_reward}")
-            """ keyboard = input("Press 'q' to quit, or 'Enter' to continue...")
-            if keyboard.lower() == "q":
-                print("\n\nUSER QUIT\n\n")
-                pygame.quit()
-                exit() """
-        
-        
+            print(f"Episode {episode}: Score = {sum(scores)}, Avg. Snake Length = {sum(snake_lengths) / len(snake_lengths)}")
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(losses, label='Average Loss per Episode')
+    plt.title("Loss During Training")
+    plt.xlabel("Episode")
+    plt.ylabel("Average Loss")
+    plt.legend()
+    plt.savefig('loss.png')
+    
     return scores
 
 if __name__ == '__main__':
@@ -134,4 +175,4 @@ if __name__ == '__main__':
     plt.xlabel("Episode")
     plt.ylabel("Total Reward")
     plt.legend()
-    plt.savefig('plot.png')
+    plt.savefig('scores.png')
