@@ -25,7 +25,7 @@ class SnakeGame:
         pygame.init()
         self.clock = pygame.time.Clock()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption('SNAKE')
+        pygame.display.set_caption('SNAKE GAME')
         self.snake = [(GRID_WIDTH // 2, GRID_HEIGHT // 2)]
         self.direction = RIGHT
         self.food = self.generate_food()
@@ -90,19 +90,3 @@ class SnakeGame:
         if x < 0 or x >= GRID_WIDTH or y < 0 or y >= GRID_HEIGHT or position in self.snake[1:]:
             return True
         return False
-
-    def run_game(self):
-        running = True
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-
-            self.screen.fill(BLACK)
-            self.draw_grid()
-            self.draw_snake()
-            self.draw_food()
-            pygame.display.flip()
-            self.clock.tick(15)
-
-        pygame.quit()
