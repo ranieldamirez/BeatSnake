@@ -25,7 +25,7 @@ collided = False
 class QNetwork(nn.Module):
     def __init__(self, input_size, output_size):
         super(QNetwork, self).__init__()
-        self.fc1 = nn.Linear(input_size, 256)  # Increased network capacity
+        self.fc1 = nn.Linear(input_size, 256)
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, output_size)
 
@@ -114,20 +114,8 @@ def train_q_learning_agent():
         
         while not done:
             pygame.event.pump()  # Process event queue
-            """ for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    return """
-            """  # Update and render the game state
-                screen.fill((0,0,0))
-                game.draw_snake()
-                game.draw_food()
-                pygame.display.flip() """
             action = agent.choose_action(state, epsilon)
-            #print("ACTION CHOSEN:", translation[action])
             reward, done = game.play_step(action)
-            #print("Reward for action:", reward)
-            #print("Keep going according to play_step AI? Done =", done)
             next_state = agent.get_state(game)
             loss = agent.update_q_network(state, action, reward, next_state, done)
             episode_losses.append(loss)
@@ -139,16 +127,7 @@ def train_q_learning_agent():
         snake_lengths.append(len(game.snake))
         
         losses.append(average_loss)
-        #print("\nEPISODE OVER\n")
 
-        """ if total_reward > 0:
-            print(colored(f"Episode reward: {total_reward}", 'green'))
-        elif total_reward == 0:
-            print(colored(f"Episode reward: {total_reward}", 'yellow'))
-        else:
-            print(colored(f"Episode reward: {total_reward}", 'red')) """
-
-        
         scores.append(total_reward)
 
         if episode % 100 == 0:

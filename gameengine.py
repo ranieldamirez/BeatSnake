@@ -1,20 +1,20 @@
 import pygame
 import random
 
-# Define colors
+# colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 
-# Set screen dimensions
+# set screen dimensions
 SCREEN_WIDTH = 300
 SCREEN_HEIGHT = 300
 CELL_SIZE = 20
 GRID_WIDTH = SCREEN_WIDTH // CELL_SIZE
 GRID_HEIGHT = SCREEN_HEIGHT // CELL_SIZE
 
-# Define directions
+# define directions
 UP = (0, -1)
 DOWN = (0, 1)
 LEFT = (-1, 0)
@@ -30,6 +30,7 @@ class SnakeGame:
         self.direction = RIGHT
         self.food = self.generate_food()
         self.last_snake_length = len(self.snake)
+        self.SCORE = 0
 
     def generate_food(self):
         while True:
@@ -56,7 +57,7 @@ class SnakeGame:
 
 
     def play_step(self, action):
-        # Perform the action in the game
+        # perform the action in the game
         if action == 0:
             self.direction = UP
         elif action == 1:
@@ -66,18 +67,19 @@ class SnakeGame:
         elif action == 3:
             self.direction = RIGHT
 
-        # Move the snake
+        # move the snake
         self.move_snake()
 
-        # Check if the game is done after taking the action
+        # check if the game is done after taking the action
         done = self.check_collision(self.snake[0])
 
-        # Calculate reward based on game state
+        # calculate reward based on game state
         reward = 0
         if done:
-            reward = -20  # Negative reward for losing the game
+            reward = -20  # negative reward for losing the game
         elif len(self.snake) > self.last_snake_length:
-            reward = 15  # Positive reward for growing the snake
+            reward = 15  # positive reward for growing the snake
+            self.SCORE += 1
         else:
             reward = 0.5  # no reward for nothing
 
