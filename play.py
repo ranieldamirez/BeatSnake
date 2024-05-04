@@ -27,8 +27,10 @@ def play():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 done = True
+        
 
-    pygame.quit()            
-
+    pygame.quit()
+    
+    print(f"\nScore: {game.SCORE}\n")
 if __name__ == '__main__':
     play()
