@@ -1,3 +1,10 @@
+"""
+# train.py
+
+This script runs the training session for the model, collecting the loss over time and tracking the
+training progress via the tqdm library.
+"""
+
 import os
 import torch
 from tqdm import tqdm

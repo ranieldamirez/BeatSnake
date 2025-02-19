@@ -2,7 +2,7 @@
 # agent.py
 
 This script is the composition of the AI Agent using a Q-Learning architecture.
-It also plots the loss of the model throughout the training session.
+It also plots the rewards gained by the model in each Snake game as it learns to maximize rewards.
 """
 
 import numpy as np
