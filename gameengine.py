@@ -1,3 +1,10 @@
+"""
+# gameengine.py
+
+This script handles the creation and handling of the Snake Game environment.
+"""
+
+
 import pygame
 import random
 

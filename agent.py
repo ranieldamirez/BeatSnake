@@ -1,3 +1,10 @@
+"""
+# agent.py
+
+This script is the composition of the AI Agent using a Q-Learning architecture.
+It also plots the loss of the model throughout the training session.
+"""
+
 import numpy as np
 from termcolor import colored
 import pygame

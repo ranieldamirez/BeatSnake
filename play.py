@@ -1,3 +1,8 @@
+"""
+# play.py
+This script handles interaction events the agent (agent.py) has with
+the Snake Game environment (gameengine.py)
+"""
 import pygame
 import torch
 from gameengine import SnakeGame, UP, DOWN, LEFT, RIGHT, GRID_WIDTH, GRID_HEIGHT
