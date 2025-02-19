@@ -17,7 +17,10 @@ import numpy as np
 
 
 def train_agent(continue_training=False):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     agent = Agent(12, 4)
+    agent.q_network.to(device) # Move model to GPU if available
     model_path = 'q_network.pth'
     episodes = 2500
     epsilon_decay = 0.999
@@ -33,13 +36,13 @@ def train_agent(continue_training=False):
     for episode in tqdm(range(episodes), desc="Training Progress"):
         total_reward = 0
         game = SnakeGame()
-        state = agent.get_state(game)
+        state = agent.get_state(game).to(device)
         done = False
         episode_loss = 0
         while not done:
             action = agent.choose_action(state, epsilon)
             reward, done = game.play_step(action)
-            next_state = agent.get_state(game)
+            next_state = agent.get_state(game).to(device)
             episode_loss += agent.update_q_network(state, action, reward, next_state, done)
             state = next_state
             total_reward += reward

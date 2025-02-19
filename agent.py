@@ -7,25 +7,18 @@ It also plots the rewards gained by the model in each Snake game as it learns to
 
 import numpy as np
 from termcolor import colored
-import pygame
 import random
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from tqdm import tqdm
 from gameengine import SnakeGame, UP, DOWN, LEFT, RIGHT, GRID_WIDTH, GRID_HEIGHT
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 from statistics import mean # DEBUG
 
-# define hyperparameters
-LEARNING_RATE = 0.001  # 
+# hyperparameters
+LEARNING_RATE = 0.001
 DISCOUNT_FACTOR = 0.99
-EPISODES = 2500
-EPSILON_DECAY = 0.999  # controls how much explore-exploit ratio changes
-MIN_EPSILON = 0.01
-collided = False
 
 # define the Q-network
 # super() gets the methods from nn.Module
@@ -95,70 +88,10 @@ class Agent:
         target_q_value = reward + DISCOUNT_FACTOR * max_next_q_value # bellman equation, discount future rewards and prioritize short term rewards
 
         q_value = q_values[0, action]
-        loss = nn.MSELoss()(q_value, torch.tensor(target_q_value)) # mean squared error to calculate loss between calculated q-value and ideal q-value
+        target_tensor = torch.tensor(target_q_value, device = q_value.device)
+        loss = nn.MSELoss()(q_value, target_tensor) # mean squared error to calculate loss between calculated q-value and ideal q-value
 
         self.optimizer.zero_grad() # clear previous gradients
         loss.backward() # backpropagation to compute gradients
         self.optimizer.step() # use gradients to adjust NN values
         return loss.item()
-
-def train_q_learning_agent():
-    agent = Agent(12, 4)
-    scores = []
-    snake_lengths = []
-    losses = []
-    epsilon = 1.0
-    
-    for episode in tqdm(range(EPISODES), desc="Training Progress"):
-        #print("\n EPISODE:", episode)
-        episode_losses = []
-
-        total_reward = 0
-        game = SnakeGame()
-        state = agent.get_state(game)
-        done = False
-        translation = {0:"UP",1:"DOWN",2:"LEFT",3:"RIGHT"}
-        
-        while not done:
-            pygame.event.pump()  # Process event queue
-            action = agent.choose_action(state, epsilon)
-            reward, done = game.play_step(action)
-            next_state = agent.get_state(game)
-            loss = agent.update_q_network(state, action, reward, next_state, done)
-            episode_losses.append(loss)
-            state = next_state
-            total_reward += reward
-            epsilon = max(MIN_EPSILON, epsilon * EPSILON_DECAY)
-
-        average_loss = sum(episode_losses) / len(episode_losses)
-        snake_lengths.append(len(game.snake))
-        
-        losses.append(average_loss)
-
-        scores.append(total_reward)
-
-        if episode % 100 == 0:
-            print(f"Episode {episode}: Score = {sum(scores)}, Avg. Snake Length = {sum(snake_lengths) / len(snake_lengths)}")
-
-    plt.figure(figsize=(10, 5))
-    plt.plot(losses, label='Average Loss per Episode')
-    plt.title("Loss During Training")
-    plt.xlabel("Episode")
-    plt.ylabel("Average Loss")
-    plt.legend()
-    plt.savefig('loss.png')
-    
-    return scores
-
-if __name__ == '__main__':
-    scores = train_q_learning_agent()
-    plt.figure(figsize=(10, 5))
-    plt.plot(scores, label='Episode Rewards')
-    z = np.polyfit(range(len(scores)), scores, 1)
-    p = np.poly1d(z)
-    plt.plot(range(len(scores)), p(range(len(scores))), "r--", label='Trendline')
-    plt.title("Episode Rewards Over Time")
-    plt.xlabel("Episode")
-    plt.ylabel("Total Reward")
-    plt.legend()
-    plt.savefig('scores.png')
