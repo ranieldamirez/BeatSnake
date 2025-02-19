@@ -16,3 +16,8 @@ python3 train.py
 python3 play.py
 ```
 
+## Results:
+![Episode Rewards Over Time](scores.png)
+
+![Loss over time](loss.png)
+
